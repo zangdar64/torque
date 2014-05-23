@@ -1,27 +1,31 @@
 <?php
-require("./creds.php");
+require("./conf.php");
 
-// Connect to Database
-mysql_connect($db_host, $db_user, $db_pass) or die(mysql_error());
-mysql_select_db($db_name) or die(mysql_error());
+//Ouverture de base
+try {
+        $db_handle = new PDO('sqlite:'.$db_path);
+        $db_handle->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+        die('Erreur1 : '.$e->getMessage());
+}
+
 
 // Get list of unique session IDs
-$sessionqry = mysql_query("SELECT COUNT(*) as `Session Size`, session
+$stmt = $db_handle->prepare("SELECT COUNT(*) as 'Session Size', session
                       FROM $db_table
                       GROUP BY session
-                      ORDER BY time DESC;") or die(mysql_error());
+                      ORDER BY time DESC");
+	$stmt->execute();
 
-// Create an array mapping session IDs to date strings
-$seshdates = array();
-while($row = mysql_fetch_assoc($sessionqry)) {
-    $session_size = $row["Session Size"];
-    // Drop sessions smaller than 60 data points
-    if ($session_size >= 60) {
-        $sid = $row["session"];
-        $sids[] = intval($sid);
-        $seshdates[$sid] = date("F d, Y  h:ia", intval(substr($sid, 0, -3)));
-    }
-    else {}
+// Create an array mapping session IDs to date strings $seshdates = array(); $sids=array();
+while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+	$session_size = $row["Session Size"];
+	// Drop sessions smaller than 60 data points
+	if ($session_size >= 60) {
+		$sid = $row["session"];
+		$sids[] = $sid;
+		$seshdates[$sid] = date("F d, Y  h:ia", intval(substr($sid, 0, -3)));
+	}
 }
 
 ?>

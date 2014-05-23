@@ -21,4 +21,21 @@ function substri_count($haystack, $needle) {
     return substr_count(strtoupper($haystack), strtoupper($needle));
 }
 
+if(PHP_INT_SIZE==4){
+	function bigint($string){
+		$val=trim($string);
+		if (ctype_digit($val)) {
+			return $val;
+		}
+		$val = preg_replace("/[^0-9](.*)$/", '', $val);
+		if (ctype_digit($val)) {
+			return $val;
+		}
+		return 0;
+	}
+}else{
+	function bigint($string){
+		return intval($string);
+	}
+}
 ?>

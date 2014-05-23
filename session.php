@@ -1,56 +1,32 @@
 <?php
 ini_set('memory_limit', '-1');
-require("./creds.php");
+require("./conf.php");
 require("./get_sessions.php");
+require("parse_functions.php");
 
 session_start();
 $_SESSION['recent_session_id'] = strval(max($sids));
 
-// Connect to Database
-mysql_connect($db_host, $db_user, $db_pass) or die(mysql_error());
-mysql_select_db($db_name) or die(mysql_error());
-
-if (isset($_POST["id"])) {
-    $getid = mysql_escape_string($_POST['id']);
-    $session_id = intval($getid);
-
-    // Get GPS data for session
-    $sessionqry = mysql_query("SELECT kff1006, kff1005
-                          FROM $db_table
-                          WHERE session=$session_id
-                          ORDER BY time DESC;") or die(mysql_error());
-
-    $geolocs = array();
-    while($geo = mysql_fetch_array($sessionqry)) {
-        if (($geo["0"] != 0) && ($geo["1"] != 0)) {
-            $geolocs[] = array("lat" => $geo["0"], "lon" => $geo["1"]);
-        }
-    }
-
-    // Create array of Latitude/Longitude strings in Google Maps JavaScript format
-    $mapdata = array();
-    foreach($geolocs as $d) {
-        $mapdata[] = "new google.maps.LatLng(".$d['lat'].", ".$d['lon'].")";
-    }
-    $imapdata = implode(",\n                    ", $mapdata);
-
-    // Don't need to set zoom manually
-    $setZoomManually = 0;
-
+//Ouverture de base
+try {
+        $db_handle = new PDO('sqlite:'.$_SERVER['DOCUMENT_ROOT'].'/'.$db_path);
+        $db_handle->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+        die('Erreur1 : '.$e->getMessage());
 }
 
-elseif (isset($_GET["id"])) {
-    $getid = mysql_escape_string($_GET['id']);
-    $session_id = intval($getid);
+if (isset($_REQUEST["id"])) {
+    $getid = $_REQUEST['id'];
+    $session_id = bigint($getid);
 
-    // Get data for session
-    $sessionqry = mysql_query("SELECT kff1006, kff1005
+    // Get GPS data for session
+    $stmt = $db_handle->prepare("SELECT kff1006, kff1005
                           FROM $db_table
-                          WHERE session=$session_id
-                          ORDER BY time DESC;") or die(mysql_error());
-
+                          WHERE session=:sid
+                          ORDER BY time DESC;");
+	$stmt->execute(array(':sid'=>$session_id));
     $geolocs = array();
-    while($geo = mysql_fetch_array($sessionqry)) {
+    while($geo = $stmt->fetch(PDO::FETCH_NUM)) {
         if (($geo["0"] != 0) && ($geo["1"] != 0)) {
             $geolocs[] = array("lat" => $geo["0"], "lon" => $geo["1"]);
         }
@@ -65,6 +41,7 @@ elseif (isset($_GET["id"])) {
 
     // Don't need to set zoom manually
     $setZoomManually = 0;
+
 }
 
 else {
@@ -221,7 +198,7 @@ else {
               <div class="list-group">
                 <?php if ($setZoomManually === 0) { ?>
                   <ul style="padding-top:10px;">
-                    <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kff1001&s2=kc';?>" target="_blank"><small>Speed (GPS) vs. Engine RPM</small></a></li>
+                    <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kd&s2=kc';?>" target="_blank"><small>Speed vs. Engine RPM</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kf&s2=k46';?>" target="_blank"><small>Intake Air Temp vs. Ambient Air Temp</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kff1249&s2=k10';?>" target="_blank"><small>Air Fuel Ratio vs. MAF Rate</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=k5&s2=k3c';?>" target="_blank"><small>Coolant Temp vs. Catalyst Temp</small></a></li>

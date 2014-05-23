@@ -7,7 +7,7 @@ $parts = strtok("url.php", $thisfile);
 if (isset($_GET["makechart"])) {
     $baselink = $parts["0"]."plot.php";
     if (isset($_POST["chartidtag"])) {
-        $seshid = strval(mysql_escape_string($_POST["chartidtag"]));
+        $seshid = strval($_POST["chartidtag"]);
         parse_str(parse_url($_SERVER['HTTP_REFERER'], PHP_URL_QUERY), $queries);
         if (array_key_exists("s1", $queries) and array_key_exists("s2", $queries)) {
             $s1data = $queries["s1"];
@@ -26,7 +26,7 @@ if (isset($_GET["makechart"])) {
 else {
     $baselink = $parts["0"]."session.php";
     if (isset($_POST["seshidtag"])) {
-        $seshid = strval(mysql_escape_string($_POST["seshidtag"]));
+        $seshid = strval($_POST["seshidtag"]);
         $outurl = $baselink."?id=".$seshid;
     }
     else {

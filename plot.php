@@ -1,16 +1,19 @@
 <?php
-require("./creds.php");
+require("./conf.php");
 require("./get_sessions.php");
 require("./parse_functions.php");
 
-
-// Connect to Database
-mysql_connect($db_host, $db_user, $db_pass) or die(mysql_error());
-mysql_select_db($db_name) or die(mysql_error());
+//Ouverture de base
+try {
+        $db_handle = new PDO('sqlite:'.$_SERVER['DOCUMENT_ROOT'].'/'.$db_path);
+        $db_handle->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+        die('Erreur1 : '.$e->getMessage());
+}
 
 // Grab the session number
 if (isset($_GET["sid"]) and in_array($_GET["sid"], $sids)) {
-    $session_id = intval(mysql_escape_string($_GET['sid']));
+    $session_id = bigint($_GET['sid']);
 
     // Get the torque key->val mappings
     $js = CSVtoJSON("./data/torque_keys.csv");
@@ -19,13 +22,13 @@ if (isset($_GET["sid"]) and in_array($_GET["sid"], $sids)) {
     // The columns to plot -- if no PIDs are specified I default to engine RPMs and
     // OBD speed as they are most likely being logged anyways.
     if (isset($_GET["s1"])) {
-        $v1 = mysql_escape_string($_GET['s1']);
+        $v1 = $_GET['s1'];
     }
     else {
         $v1 = "kc"; // Engine RPM
     }
     if (isset($_GET["s2"])) {
-        $v2 = mysql_escape_string($_GET['s2']);
+        $v2 = $_GET['s2'];
     }
     else {
         $v2 = "k5";   // Coolant Temp
@@ -36,43 +39,40 @@ if (isset($_GET["sid"]) and in_array($_GET["sid"], $sids)) {
     $v2_label = '"'.$jsarr[$v2].'"';
 
     // Get data for session
-    $sessionqry = mysql_query("SELECT time,$v1,$v2
+    $stmt = $db_handle->prepare("SELECT time,$v1,$v2
                           FROM $db_table
-                          WHERE session=$session_id
-                          ORDER BY time DESC;") or die(mysql_error());
+                          WHERE session = :sid
+                          ORDER BY time DESC;");
+
+	$stmt->execute(array(':sid'=>$session_id));
 
     // Convert data to my liking
     // TODO: Use the userDefault fields to do these conversions dynamically
-    while($row = mysql_fetch_assoc($sessionqry)) {
+    while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         if (substri_count($jsarr[$v1], "Speed") > 0) {
-            $d1[] = array(intval($row['time']),intval($row[$v1])*0.621371);
+            $d1[] = array(bigint($row['time']),intval($row[$v1]));
         }
         elseif (substri_count($jsarr[$v1], "Temp") > 0) {
-            $d1[] = array(intval($row['time']),floatval($row[$v1])*9/5+32);
+            $d1[] = array(bigint($row['time']),floatval($row[$v1])*9/5+32);
         }
         else {
-            $d1[] = array(intval($row['time']),intval($row[$v1]));
+            $d1[] = array(bigint($row['time']),intval($row[$v1]));
         }
         if (substri_count($jsarr[$v2], "Speed") > 0) {
-            $d2[] = array(intval($row['time']),intval($row[$v2])*0.621371);
+            $d2[] = array(bigint($row['time']),intval($row[$v2]));
         }
         elseif (substri_count($jsarr[$v2], "Temp") > 0) {
-            $d2[] = array(intval($row['time']),floatval($row[$v2])*9/5+32);
+            $d2[] = array(bigint($row['time']),floatval($row[$v2])*9/5+32);
         }
         else {
-            $d2[] = array(intval($row['time']),intval($row[$v2]));
+            $d2[] = array(bigint($row['time']),intval($row[$v2]));
         }
     }
-
-}
-
-else if (!isset($_GET["sid"])) {
+}else if (!isset($_GET["sid"])) {
     $session_id = 0;
     $title_str = "Torque Plots - An Error Occured";
     $page_txt = "An error has occured. The session ID you've provided appears to be ok, but an unknown problem has occured.";
-}
-
-else if (!in_array($_GET["sid"], $sids)) {
+}else if (!in_array($_GET["sid"], $sids)) {
     $session_id = 1;
     $title_str = "Torque Plots - Invalid Session ID";
     $page_txt = "The session number you've provided is not a valid session number in the database.";
@@ -322,7 +322,7 @@ else {
               <div class="list-group">
                 <?php if ($session_id > 5) { ?>
                   <ul style="padding-top:10px;padding-left:25px;">
-                    <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kff1001&s2=kc';?>"><small>Speed (GPS) vs. Engine RPM</small></a></li>
+                    <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kd&s2=kc';?>"><small>Speed vs. Engine RPM</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kf&s2=k46';?>"><small>Intake Air Temp vs. Ambient Air Temp</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=kff1249&s2=k10';?>"><small>Air Fuel Ratio vs. MAF Rate</small></a></li>
                     <li><a href="<?php echo './plot.php?sid='.$session_id.'&s1=k5&s2=k3c';?>"><small>Coolant Temp vs. Catalyst Temp</small></a></li>
@@ -417,6 +417,7 @@ else {
       <div align="center">
         <p><a href="https://github.com/econpy/torque#readme" target="_blank"><span style="color:#FFFFFF;">About</span></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://github.com/econpy/torque" target="_blank"><span style="color:#FFFFFF;">Github</span></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://www.mattnicklay.com/" target="_blank"><span style="color:#FFFFFF;">Contact</span></a></p>
       </div>
+	<div align="center">
     </div>
 
     <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.0/js/bootstrap.min.js"></script>
